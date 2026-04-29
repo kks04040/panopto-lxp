@@ -1,0 +1,453 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LXP 강의 플레이어 — 건양대학교</title>
+<style>
+:root {
+  --bg:#0f1117;--bg2:#181c25;--bg3:#1e2330;--bg4:#252b3b;
+  --bd:rgba(255,255,255,.07);--bd2:rgba(255,255,255,.13);
+  --tx:#e8eaf0;--tx2:#9aa0b4;--tx3:#5c6278;
+  --ac:#4f8ef7;--gr:#36c97a;--am:#f5a623;--re:#e84545;--tl:#1dc9a8;--pu:#9b7cfc;
+  --r:10px;--rs:6px;--fn:'Pretendard','Noto Sans KR',-apple-system,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--bg);color:var(--tx);font-family:var(--fn);font-size:14px;line-height:1.6;height:100vh;overflow:hidden;display:flex;flex-direction:column;}
+.topbar{height:50px;background:var(--bg2);border-bottom:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:0 18px;flex-shrink:0;}
+.logo{display:flex;align-items:center;gap:9px;font-weight:600;font-size:15px;}
+.logo-mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#4f8ef7,#9b7cfc);display:flex;align-items:center;justify-content:center;font-size:12px;}
+.course-label{font-size:12px;color:var(--tx2);max-width:380px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.live-badge{display:flex;align-items:center;gap:6px;background:rgba(54,201,122,.1);border:1px solid rgba(54,201,122,.22);border-radius:20px;padding:4px 11px;font-size:11px;color:var(--gr);font-weight:500;}
+.blink{width:6px;height:6px;border-radius:50%;background:var(--gr);animation:blink 1.4s infinite;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.shell{display:flex;flex:1;min-height:0;}
+.player-col{flex:1;display:flex;flex-direction:column;min-width:0;background:#000;}
+.side-col{width:310px;flex-shrink:0;background:var(--bg2);border-left:1px solid var(--bd);display:flex;flex-direction:column;}
+.ch-bar{background:var(--bg2);border-bottom:1px solid var(--bd);padding:7px 14px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.ch-info{display:flex;align-items:center;gap:8px;}
+.pill{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;}
+.pill-dual{background:rgba(79,142,247,.13);border:1px solid rgba(79,142,247,.28);color:#7db4fa;}
+.pill-single{background:rgba(29,201,168,.1);border:1px solid rgba(29,201,168,.22);color:var(--tl);}
+.pill-wait{background:rgba(245,166,35,.1);border:1px solid rgba(245,166,35,.2);color:var(--am);}
+.ch-sub{font-size:11px;color:var(--tx3);}
+.player-wrap{flex:1;position:relative;overflow:hidden;}
+#panoptoFrame{width:100%;height:100%;border:none;display:block;}
+.load-ov{position:absolute;inset:0;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:20;transition:opacity .5s;}
+.load-ov.hidden{opacity:0;pointer-events:none;}
+.spinner{width:36px;height:36px;border:3px solid rgba(79,142,247,.2);border-top-color:var(--ac);border-radius:50%;animation:spin .8s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.att-ov{position:absolute;inset:0;background:rgba(0,0,0,.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;z-index:30;}
+.att-ov.show{display:flex;}
+.att-btn{margin-top:6px;padding:10px 28px;background:var(--ac);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--fn);}
+.status-bar{height:28px;background:var(--bg2);border-top:1px solid var(--bd);display:flex;align-items:center;justify-content:space-between;padding:0 14px;font-size:10px;color:var(--tx3);flex-shrink:0;}
+.sl,.sr{display:flex;align-items:center;gap:12px;}
+.si{display:flex;align-items:center;gap:4px;}
+.sdot{width:5px;height:5px;border-radius:50%;}
+.sdot.g{background:var(--gr);}.sdot.b{background:var(--ac);}.sdot.a{background:var(--am);}
+.tab-bar{display:flex;border-bottom:1px solid var(--bd);flex-shrink:0;}
+.tab{flex:1;padding:10px 2px;text-align:center;font-size:11px;font-weight:500;color:var(--tx3);cursor:pointer;border-bottom:2px solid transparent;transition:all .15s;}
+.tab:hover{color:var(--tx2);}.tab.on{color:var(--ac);border-bottom-color:var(--ac);}
+.tab-pane{flex:1;overflow-y:auto;display:none;padding:14px;}
+.tab-pane.on{display:block;}
+.tab-pane::-webkit-scrollbar{width:3px;}
+.tab-pane::-webkit-scrollbar-thumb{background:var(--bg4);}
+.row-sb{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;}
+.lbl{font-size:11px;color:var(--tx2);}
+.big-num{font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;}.big-num.g{color:var(--gr);}
+.bar-bg{height:7px;background:var(--bg4);border-radius:4px;overflow:hidden;margin-bottom:14px;}
+.bar-fill{height:100%;background:linear-gradient(90deg,var(--gr),var(--tl));border-radius:4px;transition:width .6s;}
+.sg{display:grid;grid-template-columns:1fr 1fr;gap:7px;margin-bottom:14px;}
+.sc{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--rs);padding:9px 11px;}
+.sc .slb{font-size:10px;color:var(--tx3);font-weight:500;letter-spacing:.3px;margin-bottom:3px;}
+.sc .sv{font-size:16px;font-weight:700;font-variant-numeric:tabular-nums;}
+.sv.g{color:var(--gr);}.sv.a{color:var(--am);}.sv.b{color:var(--ac);}.sv.t{color:var(--tx);}
+.tl-bar{height:20px;background:var(--bg4);border-radius:3px;position:relative;overflow:hidden;margin-bottom:3px;}
+.seg-w{position:absolute;height:100%;background:rgba(54,201,122,.5);}
+.tl-ends{display:flex;justify-content:space-between;margin-bottom:0;}
+.tl-ends span{font-size:10px;color:var(--tx3);}
+.notice{margin-top:11px;background:rgba(79,142,247,.07);border:1px solid rgba(79,142,247,.18);border-radius:var(--rs);padding:9px 11px;font-size:11px;color:#7db4fa;line-height:1.7;}
+.api-badge{display:inline-flex;align-items:center;gap:4px;background:rgba(54,201,122,.08);border:1px solid rgba(54,201,122,.2);border-radius:4px;padding:2px 7px;font-size:10px;color:var(--gr);margin-left:6px;}
+.last-sync{font-size:10px;color:var(--tx3);margin-top:8px;}
+.sec-t{font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;}
+.sum-body{font-size:12px;color:var(--tx2);line-height:1.8;border-left:2px solid var(--bd2);padding-left:11px;margin-bottom:16px;}
+.ch-list{list-style:none;margin-bottom:16px;}
+.ch-item{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--bd);cursor:pointer;transition:opacity .15s;}
+.ch-item:hover{opacity:.65;}.ch-item:last-child{border-bottom:none;}
+.ch-dot{width:6px;height:6px;border-radius:50%;background:var(--bd2);flex-shrink:0;}.ch-dot.done{background:var(--gr);}
+.ch-ts{font-size:11px;color:var(--ac);font-variant-numeric:tabular-nums;font-weight:500;min-width:38px;}
+.ch-txt{font-size:12px;color:var(--tx2);flex:1;}
+.kw-wrap{display:flex;flex-wrap:wrap;gap:5px;}
+.kw{font-size:11px;padding:3px 8px;border-radius:12px;}
+.quiz-card{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);padding:13px;margin-bottom:11px;}
+.qz-q{font-size:12px;color:var(--tx);font-weight:500;margin-bottom:11px;line-height:1.6;}
+.opts{display:flex;flex-direction:column;gap:5px;}
+.opt{padding:7px 10px;background:var(--bg4);border:1px solid var(--bd);border-radius:var(--rs);font-size:11px;color:var(--tx2);cursor:pointer;transition:all .15s;display:flex;align-items:center;gap:7px;}
+.opt:hover{border-color:rgba(79,142,247,.4);color:var(--tx);}
+.opt.correct{background:rgba(54,201,122,.1);border-color:rgba(54,201,122,.4);color:var(--gr);}
+.opt.wrong{background:rgba(232,69,69,.07);border-color:rgba(232,69,69,.3);color:var(--re);}
+.opt-n{width:18px;height:18px;border-radius:50%;background:var(--bg);border:1px solid var(--bd2);font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.locked{text-align:center;padding:20px 12px;color:var(--tx3);font-size:11px;line-height:1.8;}
+.note-wrap{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:11px;}
+.note-ts{padding:7px 11px 0;font-size:10px;color:var(--ac);font-weight:500;}
+.note-ta{width:100%;background:none;border:none;outline:none;color:var(--tx);font-size:12px;font-family:var(--fn);padding:6px 11px 8px;resize:none;height:64px;}
+.note-foot{display:flex;justify-content:flex-end;padding:0 7px 7px;gap:5px;}
+.nbtn{padding:3px 10px;border-radius:5px;font-size:11px;font-weight:500;cursor:pointer;border:none;font-family:var(--fn);}
+.nbtn.sec{background:var(--bg4);color:var(--tx2);}.nbtn.pri{background:var(--ac);color:#fff;}
+.ni{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--rs);padding:9px 11px;margin-bottom:7px;}
+.ni-ts{font-size:10px;color:var(--ac);font-weight:500;margin-bottom:3px;}
+.ni-txt{font-size:11px;color:var(--tx2);line-height:1.6;}
+.qa-item{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;margin-bottom:9px;}
+.qa-q{padding:9px 11px;font-size:12px;color:var(--tx);display:flex;gap:7px;}
+.qa-a{padding:9px 11px;font-size:11px;color:var(--tx2);background:rgba(29,201,168,.04);border-top:1px solid var(--bd);display:flex;gap:7px;line-height:1.6;}
+.av{width:20px;height:20px;border-radius:50%;font-size:9px;font-weight:600;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.av-s{background:rgba(79,142,247,.18);color:var(--ac);}.av-p{background:rgba(29,201,168,.15);color:var(--tl);}
+.qa-iw{background:var(--bg3);border:1px solid var(--bd);border-radius:var(--r);overflow:hidden;}
+.qa-inp{width:100%;background:none;border:none;outline:none;color:var(--tx);font-size:12px;font-family:var(--fn);padding:9px 11px;resize:none;height:56px;}
+.qa-inp::placeholder{color:var(--tx3);}
+.qa-send{width:100%;padding:7px;background:rgba(79,142,247,.12);border:none;border-top:1px solid var(--bd);color:var(--ac);font-size:11px;font-weight:500;cursor:pointer;font-family:var(--fn);}
+.qa-send:hover{background:rgba(79,142,247,.22);}
+.summary-table{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px;}
+.summary-table th{font-weight:500;color:var(--tx3);padding:5px 6px;border-bottom:1px solid var(--bd);text-align:left;}
+.summary-table td{padding:5px 6px;border-bottom:1px solid var(--bd);color:var(--tx2);}
+.badge-att{display:inline-block;padding:1px 6px;border-radius:4px;font-size:10px;font-weight:600;}
+.badge-att.y{background:rgba(54,201,122,.15);color:var(--gr);}
+.badge-att.n{background:rgba(245,166,35,.12);color:var(--am);}
+@media(max-width:768px){body{height:auto;overflow:auto;}.shell{flex-direction:column;}.player-col{min-height:56vw;}.side-col{width:100%;height:360px;border-left:none;border-top:1px solid var(--bd);}.status-bar,.course-label{display:none;}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo"><div class="logo-mark">▶</div><span>건양 LXP</span></div>
+  <span class="course-label" id="courseTitle">강의 로딩 중...</span>
+  <div class="live-badge"><div class="blink"></div>출석 추적 중</div>
+</header>
+
+<div class="shell">
+  <div class="player-col">
+    <div class="ch-bar">
+      <div class="ch-info">
+        <span class="pill pill-wait" id="chPill">● 세션 정보 조회 중...</span>
+        <span class="ch-sub" id="chSub">백엔드 API 연결 중</span>
+      </div>
+      <span style="font-size:10px;color:var(--tx3);">플레이어 우하단 ⊞ 버튼으로 레이아웃 전환</span>
+    </div>
+    <div class="player-wrap">
+      <div class="load-ov" id="loadOv">
+        <div class="spinner"></div>
+        <span style="font-size:12px;color:var(--tx2);">세션 정보 조회 중...</span>
+      </div>
+      <div class="att-ov" id="attOv">
+        <div style="font-size:36px;">📋</div>
+        <div style="font-size:18px;font-weight:600;">출석 확인</div>
+        <div style="font-size:12px;color:rgba(255,255,255,.55);text-align:center;max-width:260px;line-height:1.7;">계속 시청 중이신가요?<br>미응답 시 해당 구간은 미시청으로 처리됩니다.</div>
+        <div style="font-size:38px;font-weight:700;color:var(--ac);font-variant-numeric:tabular-nums;" id="attCnt">30</div>
+        <button class="att-btn" onclick="confirmAtt()">✓ 시청 중입니다</button>
+      </div>
+      <iframe id="panoptoFrame" allowfullscreen allow="autoplay" aria-label="파놉토 강의 플레이어"></iframe>
+    </div>
+    <div class="status-bar">
+      <div class="sl">
+        <div class="si"><div class="sdot g"></div><span id="stConn">서버 연결 중</span></div>
+        <div class="si"><div class="sdot b"></div><span>파놉토 REST API</span></div>
+        <div class="si"><div class="sdot a"></div><span id="stPoll">폴링 대기</span></div>
+      </div>
+      <div class="sr">
+        <span>HTML5 · 플러그인 불필요</span>
+        <span style="color:var(--bd2)">|</span>
+        <span>Node.js 백엔드 연동</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="side-col">
+    <div class="tab-bar">
+      <div class="tab on" onclick="switchTab('attendance',this)">출석</div>
+      <div class="tab"    onclick="switchTab('summary',this)">요약</div>
+      <div class="tab"    onclick="switchTab('quiz',this)">퀴즈</div>
+      <div class="tab"    onclick="switchTab('note',this)">노트</div>
+      <div class="tab"    onclick="switchTab('qa',this)">Q&amp;A</div>
+    </div>
+
+    <!-- 출석 탭 -->
+    <div class="tab-pane on" id="pane-attendance">
+      <div class="row-sb">
+        <span class="lbl">이번 강의 시청률 <span class="api-badge">API</span></span>
+        <span class="big-num g" id="pct">0%</span>
+      </div>
+      <div class="bar-bg"><div class="bar-fill" id="bar" style="width:0%"></div></div>
+      <div class="sg">
+        <div class="sc"><div class="slb">총 시청 시간</div><div class="sv b" id="watchTime">00:00</div></div>
+        <div class="sc"><div class="slb">출석 인정 기준</div><div class="sv g" id="thresholdLabel">80%</div></div>
+        <div class="sc"><div class="slb">이어보기 횟수</div><div class="sv t" id="resumeCnt">0회</div></div>
+        <div class="sc"><div class="slb">출석 상태</div><div class="sv a" id="attStatus">대기 중</div></div>
+      </div>
+      <div style="font-size:10px;color:var(--tx3);font-weight:500;margin-bottom:6px;">구간별 시청 현황</div>
+      <div class="tl-bar" id="tlBar"></div>
+      <div class="tl-ends" style="margin-bottom:0"><span>00:00</span><span id="durLabel">--:--</span></div>
+      <div class="last-sync">마지막 동기화: <span id="lastSync">-</span></div>
+      <div class="notice">
+        파놉토 REST API로 실시간 시청 데이터를 수신합니다.<br>
+        폴링 주기마다 갱신 · 중복 구간 자동 처리<br>
+        출석 인정: 전체 강의의 <strong id="thresholdNotice">80%</strong> 이상 시청 완료 시
+      </div>
+    </div>
+
+    <!-- 요약 탭 -->
+    <div class="tab-pane" id="pane-summary">
+      <div class="sec-t">강의 핵심 요약</div>
+      <div class="sum-body">본 강의는 교수학습혁신 방법론의 기본 개념을 다루며, 플립드 러닝과 PBL 설계 원리를 소개합니다. 학습자 중심 환경 구축을 위한 디지털 도구 활용 전략에 초점을 맞춥니다.</div>
+      <div class="sec-t">챕터</div>
+      <ul class="ch-list">
+        <li class="ch-item"><div class="ch-dot done"></div><span class="ch-ts">00:00</span><span class="ch-txt">강의 소개 및 학습 목표</span></li>
+        <li class="ch-item"><div class="ch-dot done"></div><span class="ch-ts">05:30</span><span class="ch-txt">플립드 러닝 개념과 사례</span></li>
+        <li class="ch-item"><div class="ch-dot done"></div><span class="ch-ts">18:10</span><span class="ch-txt">PBL 설계 원리 (7단계)</span></li>
+        <li class="ch-item"><div class="ch-dot"></div><span class="ch-ts">31:45</span><span class="ch-txt">디지털 도구 연계 전략</span></li>
+        <li class="ch-item"><div class="ch-dot"></div><span class="ch-ts">39:00</span><span class="ch-txt">실습 및 마무리 정리</span></li>
+      </ul>
+      <div class="sec-t">주요 키워드</div>
+      <div class="kw-wrap">
+        <span class="kw" style="background:rgba(79,142,247,.1);color:#7db4fa;border:1px solid rgba(79,142,247,.2);">플립드러닝</span>
+        <span class="kw" style="background:rgba(29,201,168,.08);color:var(--tl);border:1px solid rgba(29,201,168,.18);">PBL</span>
+        <span class="kw" style="background:rgba(155,124,252,.1);color:var(--pu);border:1px solid rgba(155,124,252,.2);">학습자중심</span>
+        <span class="kw" style="background:rgba(245,166,35,.08);color:var(--am);border:1px solid rgba(245,166,35,.18);">교수설계</span>
+        <span class="kw" style="background:rgba(54,201,122,.08);color:var(--gr);border:1px solid rgba(54,201,122,.18);">역량기반</span>
+      </div>
+    </div>
+
+    <!-- 퀴즈 탭 -->
+    <div class="tab-pane" id="pane-quiz">
+      <div class="quiz-card">
+        <div class="qz-q">Q1. 플립드 러닝에서 교수자의 핵심 역할은?</div>
+        <div class="opts">
+          <div class="opt" onclick="pick(this,'wrong')"><div class="opt-n">①</div>강의 내용을 직접 전달하는 강사</div>
+          <div class="opt" onclick="pick(this,'correct')"><div class="opt-n">②</div>학습자 문제해결을 촉진하는 퍼실리테이터</div>
+          <div class="opt" onclick="pick(this,'wrong')"><div class="opt-n">③</div>온라인 콘텐츠만 제작하는 제작자</div>
+          <div class="opt" onclick="pick(this,'wrong')"><div class="opt-n">④</div>시험 출제 및 성적 관리 담당자</div>
+        </div>
+      </div>
+      <div class="quiz-card" style="opacity:.45">
+        <div class="qz-q">Q2. PBL 7단계 중 '문제 정의' 단계의 목적은?</div>
+        <div class="locked">🔒<br>31:45 구간 시청 완료 후 해제됩니다.</div>
+      </div>
+    </div>
+
+    <!-- 노트 탭 -->
+    <div class="tab-pane" id="pane-note">
+      <div class="note-wrap">
+        <div class="note-ts" id="noteTs">📍 메모 시간</div>
+        <textarea class="note-ta" id="noteInput" placeholder="강의 내용을 메모하세요..."></textarea>
+        <div class="note-foot">
+          <button class="nbtn sec" onclick="document.getElementById('noteInput').value=''">취소</button>
+          <button class="nbtn pri" onclick="saveNote()">저장</button>
+        </div>
+      </div>
+      <div id="noteList">
+        <div class="ni"><div class="ni-ts">05:32 — 플립드러닝</div><div class="ni-txt">수업 전 영상 시청 → 수업 중 토론/활동. 교수자 역할이 강사 → 코치로 전환.</div></div>
+      </div>
+    </div>
+
+    <!-- Q&A 탭 -->
+    <div class="tab-pane" id="pane-qa">
+      <div class="qa-item">
+        <div class="qa-q"><div class="av av-s">학</div><div><div style="font-size:10px;color:var(--tx3);margin-bottom:2px;">김○○ · 18:22</div>PBL 문제의 '실제성' 기준은 무엇인가요?</div></div>
+        <div class="qa-a"><div class="av av-p">교</div><div><div style="font-size:10px;color:var(--tl);margin-bottom:2px;">교수자 답변 · 25:10</div>현장에서 발생 가능한 비구조적 문제인지, 다양한 해결책이 가능한지 기준으로 판단합니다.</div></div>
+      </div>
+      <div class="qa-iw">
+        <textarea class="qa-inp" placeholder="질문을 입력하세요..."></textarea>
+        <button class="qa-send">질문 등록 →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ── 설정: URL 파라미터로 sessionId, userId 전달 가능
+ * 예: /index.html?sessionId=bbd0b8d1-...&userId=user123
+ * LTI 환경에서는 서버 사이드 세션에서 주입
+ */
+var params    = new URLSearchParams(location.search);
+var SESSION_ID = params.get('sessionId') || 'bbd0b8d1-b091-45a3-afd4-b322000b6fa2';
+var USER_ID    = params.get('userId')    || 'demo-user-001';
+var POLL_MS    = 30000; // 30초 폴링 (서버 설정과 동일하게)
+
+var duration   = 0;
+var attTimer   = null;
+var attCountdown = 0;
+
+/* ── 1. 세션 정보 로드 + embed URL 설정 ── */
+async function loadSession() {
+  try {
+    const res  = await fetch(`/api/session/${SESSION_ID}/info`);
+    const data = await res.json();
+
+    if (!data.ok) throw new Error(data.error);
+
+    duration = data.duration || 0;
+    document.getElementById('courseTitle').textContent = data.title || '강의 플레이어';
+    document.getElementById('durLabel').textContent    = fmt(duration);
+
+    // 채널 수에 따라 배지 업데이트
+    if (data.isMultiStream) {
+      setChPill('dual', '2채널 감지됨',
+        `총 ${fmt(duration)} · 교수자 영상 + 강의자료 (스트림 ${data.streamCount}개)`);
+    } else {
+      setChPill('single', '1채널',
+        `총 ${fmt(duration)} · 단일 스트림`);
+    }
+
+    // iframe embed URL 적용
+    document.getElementById('panoptoFrame').src = data.embedUrl;
+    document.getElementById('stConn').textContent = '백엔드 연결됨 ✓';
+
+    // 폴링 시작 요청
+    await fetch(`/api/session/${SESSION_ID}/poll/start`, { method: 'POST' });
+    document.getElementById('stPoll').textContent = `${POLL_MS/1000}초 폴링 중`;
+
+    hideLoad();
+
+    // 즉시 출석 조회 후 주기 폴링 시작
+    await fetchAttendance();
+    setInterval(fetchAttendance, POLL_MS);
+
+  } catch (err) {
+    console.error('세션 로드 실패:', err);
+    document.getElementById('stConn').textContent = '서버 연결 실패 — .env 설정 확인';
+    setChPill('wait', '연결 실패', err.message);
+    hideLoad();
+    // 서버 없이도 iframe은 표시
+    document.getElementById('panoptoFrame').src =
+      `https://dunet.ap.panopto.com/Panopto/Pages/Embed.aspx?id=${SESSION_ID}` +
+      `&autoplay=false&offerviewer=true&showtitle=true&showbrand=true&captions=true&interactivity=all`;
+  }
+}
+
+/* ── 2. 출석 데이터 폴링 ── */
+async function fetchAttendance() {
+  try {
+    const res  = await fetch(`/api/session/${SESSION_ID}/attendance?userId=${USER_ID}`);
+    const data = await res.json();
+    if (!data.ok) return;
+
+    updateAttUI({
+      percent:       parseFloat(data.percent || 0),
+      secondsViewed: data.secondsViewed || 0,
+      duration:      data.duration      || duration,
+      resumeCount:   data.resumeCount   || 0,
+      isAttended:    data.isAttended    || false,
+      threshold:     data.threshold     || 80
+    });
+
+    document.getElementById('lastSync').textContent = new Date().toLocaleTimeString('ko-KR');
+
+  } catch (err) {
+    console.warn('출석 조회 실패:', err.message);
+  }
+}
+
+/* ── 3. 출석 UI 업데이트 ── */
+function updateAttUI(d) {
+  var pct = Math.min(100, d.percent || 0);
+  document.getElementById('pct').textContent       = pct.toFixed(1) + '%';
+  document.getElementById('bar').style.width       = pct + '%';
+  document.getElementById('watchTime').textContent = fmt(d.secondsViewed);
+  document.getElementById('resumeCnt').textContent = (d.resumeCount || 0) + '회';
+  document.getElementById('thresholdLabel').textContent  = (d.threshold || 80) + '%';
+  document.getElementById('thresholdNotice').textContent = (d.threshold || 80) + '%';
+
+  // 전체 길이 업데이트
+  if (d.duration > 0) {
+    duration = d.duration;
+    document.getElementById('durLabel').textContent = fmt(d.duration);
+  }
+
+  // 타임라인 시각화 (시청 비율 기반 블록)
+  renderTimeline(pct, d.duration || duration);
+
+  // 출석 상태
+  var el = document.getElementById('attStatus');
+  if (d.isAttended) {
+    el.textContent = '출석 인정'; el.className = 'sv g';
+  } else if (pct > 0) {
+    el.textContent = '진행 중 (' + pct.toFixed(1) + '%)'; el.className = 'sv a';
+  } else {
+    el.textContent = '미시청'; el.className = 'sv t';
+  }
+
+  // 출석 확인 오버레이 (80% 넘으면 완료 안내)
+  if (d.isAttended && document.getElementById('attOv').classList.contains('show')) {
+    confirmAtt();
+  }
+}
+
+/* ── 타임라인 렌더링 (시청률 기반 단순 블록) ── */
+function renderTimeline(pct) {
+  var bar = document.getElementById('tlBar');
+  bar.innerHTML = '';
+  if (pct <= 0) return;
+  var seg = document.createElement('div');
+  seg.className = 'seg-w';
+  seg.style.left  = '0%';
+  seg.style.width = Math.min(100, pct).toFixed(1) + '%';
+  bar.appendChild(seg);
+}
+
+/* ── 출석 오버레이 ── */
+function showAttOv() {
+  attCountdown = 30;
+  document.getElementById('attCnt').textContent = attCountdown;
+  document.getElementById('attOv').classList.add('show');
+  clearInterval(attTimer);
+  attTimer = setInterval(function(){
+    attCountdown--;
+    document.getElementById('attCnt').textContent = attCountdown;
+    if (attCountdown <= 0) { clearInterval(attTimer); document.getElementById('attOv').classList.remove('show'); }
+  }, 1000);
+}
+function confirmAtt() { clearInterval(attTimer); document.getElementById('attOv').classList.remove('show'); }
+
+/* ── 탭 ── */
+function switchTab(name, el) {
+  document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+  document.getElementById('pane-' + name).classList.add('on');
+  el.classList.add('on');
+}
+
+/* ── 퀴즈 ── */
+function pick(el, result) {
+  el.closest('.opts').querySelectorAll('.opt').forEach(o => { o.onclick=null; o.style.opacity='.45'; });
+  el.style.opacity='1'; el.classList.add(result);
+}
+
+/* ── 노트 ── */
+function saveNote() {
+  var inp = document.getElementById('noteInput');
+  var val = inp.value.trim(); if(!val) return;
+  var item = document.createElement('div'); item.className='ni';
+  item.innerHTML = '<div class="ni-ts">' + new Date().toLocaleTimeString('ko-KR') + ' — 메모</div>' +
+                   '<div class="ni-txt">' + val + '</div>';
+  document.getElementById('noteList').prepend(item);
+  inp.value='';
+}
+
+/* ── 채널 배지 ── */
+function setChPill(type, text, sub) {
+  var p = document.getElementById('chPill');
+  p.className = 'pill ' + (type==='dual'?'pill-dual':type==='single'?'pill-single':'pill-wait');
+  p.textContent = (type==='dual'?'●● ':'● ') + text;
+  document.getElementById('chSub').textContent = sub;
+}
+
+function fmt(sec) {
+  sec = Math.floor(sec || 0);
+  return String(Math.floor(sec/60)).padStart(2,'0') + ':' + String(sec%60).padStart(2,'0');
+}
+function hideLoad() { document.getElementById('loadOv').classList.add('hidden'); }
+
+/* ── 시작 ── */
+loadSession();
+</script>
+</body>
+</html>
